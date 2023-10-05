@@ -10,7 +10,7 @@ def find_version_info():
     try:
         git_output = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=repo_root)
         dev_version_id = git_output.strip().decode()
-        return f"+dev{dev_version_id}"
+        return f".dev{dev_version_id}"
     except Exception:
         return ""
 
@@ -27,5 +27,5 @@ setup(
     name="toyflow",
     packages=find_packages(include=["toyflow", "toyflow.*"]),
     url="https://github.com/yujiepan-work/toyflow",
-    version=f"0.1.0{find_version_info()}",
+    version=f"0.1.1{find_version_info()}",
 )
