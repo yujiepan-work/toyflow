@@ -27,5 +27,5 @@ setup(
     name="toyflow",
     packages=find_packages(include=["toyflow", "toyflow.*"]),
     url="https://github.com/yujiepan-work/toyflow",
-    version=f"0.1.1{find_version_info()}",
+    version=f"0.2.0{find_version_info()}",
 )
