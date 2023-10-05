@@ -8,7 +8,7 @@ repo_root = Path(__file__).parent
 
 def find_version_info():
     try:
-        git_output = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=repo_root)
+        git_output = subprocess.check_output(["git", "rev-list", "--count", "HEAD"], cwd=repo_root)
         dev_version_id = git_output.strip().decode()
         return f".dev{dev_version_id}"
     except Exception:
