@@ -20,6 +20,8 @@ setup(
     author_email="yujiepan@no-email.example.com",
     python_requires=">=3.8",
     description="Lightweight flow execution tool.",
+    long_description=open("README.md").read(),
+    long_description_content_type="text/markdown",
     license="MIT license",
     keywords="toyflow",
     name="toyflow",
