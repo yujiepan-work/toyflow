@@ -1,7 +1,7 @@
 import asyncio
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from typing import Any, Iterable, Optional, Union
+from typing import Any, Iterable, Optional, Union, List
 
 __all__ = [
     "Resource",
@@ -18,6 +18,7 @@ class Resource(ABC):
         super().__init__()
         self.name = name
         self.resources = resources
+        self._lock = asyncio.Lock()
 
     @abstractmethod
     @asynccontextmanager
@@ -46,6 +47,20 @@ class DiscreteResource(Resource):
         finally:
             for item in items:
                 await self.resources.put(item)
+
+    async def allocate_no_recycle(self, quantity, timeout: Optional[float]):
+        timeout = timeout / quantity if (isinstance(timeout, float) and quantity > 0) else None
+        async with self._lock:
+            if (self.resources.qsize()) < quantity:
+                return None
+            items = []
+            try:
+                for _ in range(quantity):
+                    item = await asyncio.wait_for(self.resources.get(), timeout=timeout)
+                    items.append(item)
+                return items
+            except asyncio.TimeoutError:
+                return None
 
 
 class ContinuousResource(Resource):

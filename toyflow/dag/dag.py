@@ -52,6 +52,10 @@ class Graph:
     def __init__(self, nodes: List[Node]):
         self.nodes = nodes
 
+    @property
+    def num_nodes(self):
+        return len(self.nodes)
+
     def resolve(self, nodes: Optional[List[Node]] = None):
         """
         Returns upstreams and downstreams dicts.
@@ -137,7 +141,7 @@ class TopoSorter:
     def from_nodes(cls, nodes: List[Node]):
         return cls(Graph(nodes))
 
-    def get_next_node_candidates(self):
+    def get_next_node_candidates(self) -> tuple[Node, ...]:
         return tuple(self._root_nodes)
 
     def set_next_node(self, node: Node):

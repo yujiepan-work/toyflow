@@ -15,7 +15,7 @@ from unittest.mock import Mock
 
 from toyflow.core.task_node import Task
 from toyflow.dag import TopoSorter
-from toyflow.resources import CPUResource, CUDAResource
+from toyflow.resources import CPUResource, CUDAResource, Resource
 from toyflow.utils import logger
 
 CUDA_VISIBLE_DEVICES = "CUDA_VISIBLE_DEVICES"
@@ -47,10 +47,17 @@ class Launcher:
     def __init__(self, cuda_list: List[int]) -> None:
         self.cuda_list = cuda_list
         self.add_timestamp_to_log = False
+        self.cuda_resource = CUDAResource(cuda_list)
+        self._lock = asyncio.Lock()
+        self.check_interval = 1  # check every 1 sec
+        self._cuda_str_max_length = 3  # len(",".join(map(str, cuda_list)))
 
     def run(self, tasks: List[Task], add_timestamp_to_log=False):
         self.add_timestamp_to_log = add_timestamp_to_log
-        runner = asyncio.run(self._run(tasks))
+        for i, task in enumerate(tasks):
+            task.task_id = i + 1
+        runner = asyncio.run(self._run_v2(tasks))
+        # runner = asyncio.run(self._run(tasks))
         print(runner.get_current_ordered_nodes())
 
     async def _update_candidates(self, finished_task: Task, runner: TopoSorter, cuda_resource: CUDAResource):
@@ -113,7 +120,12 @@ class Launcher:
         with nullcontext():
             cuda = ",".join(map(str, cuda_list))
             logging_callback = lambda pid: logger.info(
-                "Running Task[%d/%s] PID=%d CUDA=%s: %s", task_id, total, pid, cuda, task.identifier
+                "Running Task[%d/%s] PID=%d CUDA=%s: %s",
+                task_id,
+                total,
+                pid,
+                cuda.ljust(self._cuda_str_max_length),
+                task.identifier,
             )
             env = deepcopy(task.env)
             env[CUDA_VISIBLE_DEVICES] = str(cuda)
@@ -165,7 +177,7 @@ class Launcher:
                 task_id,
                 total,
                 proc.pid,
-                cuda,
+                cuda.ljust(self._cuda_str_max_length),
                 int(cost_time),
                 task.identifier,
             )
@@ -208,3 +220,56 @@ class Launcher:
                 )
             await proc.wait()
             return proc
+
+    def _select_next_task(self, candidates: List[Task], cuda_resource: asyncio.Queue):
+        if not candidates:
+            return None
+        task = sorted(candidates, key=task_sort_key)[0]
+        if (cuda_resource.qsize()) >= task.cuda_quantity:
+            return task
+        else:
+            return None
+
+    async def return_back_resource(self, cuda_list):
+        async with self._lock:
+            for item in cuda_list:
+                await self.cuda_resource.resources.put(item)
+
+    async def try_launch_next_task(self):
+        async with self._lock:
+            candidates = [t for t in self.runner.get_next_node_candidates() if t not in self.launched_tasks]
+            task = self._select_next_task(candidates, self.cuda_resource.resources)
+            if task is None:
+                return
+            cuda_list = await self.cuda_resource.allocate_no_recycle(task.cuda_quantity, timeout=None)
+            if cuda_list is None:
+                return
+            self.launched_tasks.append(task)
+
+        async_task = asyncio.create_task(
+            self._launch_task_and_then_return_back_resource(
+                task,
+                cuda_list,
+            )
+        )
+        # async_task.add_done_callback(self.launched_tasks.remove)
+
+    async def _run_v2(self, tasks):
+        self.runner = TopoSorter.from_nodes(tasks)
+        self.launched_tasks = list()
+        await self.try_launch_next_task()  # trigger the first task
+        while len(self.runner.get_remaining_nodes()) > 0:
+            await self.try_launch_next_task()
+            await asyncio.sleep(self.check_interval)
+        return self.runner
+
+    async def _launch_task_and_then_return_back_resource(
+        self,
+        task: Task,
+        cuda_list,
+    ):
+        await self._launch_task(task, task.task_id, None, cuda_list=cuda_list, total=self.runner.graph.num_nodes)
+        async with self._lock:
+            self.runner.set_next_node(task)  # set this task as finished
+        await self.return_back_resource(cuda_list)
+        # await self.try_launch_next_task()

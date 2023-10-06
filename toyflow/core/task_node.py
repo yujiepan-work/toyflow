@@ -39,6 +39,7 @@ class Task(Node):
         self.prepare_fn = prepare_fn or Mock()
         self.prepare_fn_args = prepare_fn_args or tuple()
         self.identifier = str(identifier) or self.cmd_str()
+        self.task_id = -1
 
     def cmd_str(self):
         cmd_l = self.cmd.split() if isinstance(self.cmd, str) else self.cmd
