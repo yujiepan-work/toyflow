@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from toyflow.core.batchrun import Launcher, Task
+from toyflow import Launcher, Task
 
 if __name__ == "__main__":
     launcher = Launcher([1, 2, 3, 4, 5])
