@@ -16,7 +16,7 @@ if __name__ == "__main__":
             io_folder=f"tmp/{i}",
             prepare_fn=create_folder,
             cuda_quantity=i,
-            identifier=str(i),
+            identifier='A simple task with id=' + str(i),
             prepare_fn_args=(f"/tmp/{i}",),
         )
         tasks.append(task)

@@ -8,15 +8,41 @@ import subprocess
 import time
 from contextlib import asynccontextmanager, nullcontext
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from unittest.mock import Mock
+import rich
+from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn, TimeElapsedColumn
+from rich.style import StyleType
+from rich.console import Console
 
 from toyflow.core.task_node import Task
 from toyflow.dag import TopoSorter
 from toyflow.resources import CPUResource, CUDAResource, Resource
 from toyflow.utils import logger
+
+console = Console()
+
+
+class MockLogger():
+    def info(self, *args, **kwargs):
+        return self.rich_print(*args, **kwargs)
+
+    def warning(self, *args, **kwargs):
+        return self.rich_print(*args, **kwargs)
+
+    def error(self, *args, **kwargs):
+        return self.rich_print(*args, **kwargs)
+
+    def critical(self, *args, **kwargs):
+        return self.rich_print(*args, **kwargs)
+
+    def rich_print(self, *args, **kwargs):
+        console.print(args[0] % (args[1:]), **kwargs)
+
+
+logger = MockLogger()
 
 CUDA_VISIBLE_DEVICES = "CUDA_VISIBLE_DEVICES"
 
@@ -27,10 +53,6 @@ def pre_launch_worker(io_folder):
 
 def task_sort_key(task: Task):
     return (task.cuda_quantity, task.cpu_quantity)
-
-
-from dataclasses import dataclass, field
-from typing import Any, Union, List, Tuple
 
 
 @dataclass(order=True)
@@ -54,11 +76,31 @@ class Launcher:
 
     def run(self, tasks: List[Task], add_timestamp_to_log=False):
         self.add_timestamp_to_log = add_timestamp_to_log
-        for i, task in enumerate(tasks):
-            task.task_id = i + 1
-        runner = asyncio.run(self._run_v2(tasks))
-        # runner = asyncio.run(self._run(tasks))
-        print(runner.get_current_ordered_nodes())
+        self.progress_tasks = {}
+        self.progress = Progress(
+            TextColumn("{task.fields[cuda_list]}"),
+            TextColumn("{task.description}"),
+            TextColumn('{task.fields[status]}'),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            TextColumn("{task.start_time}"),
+            TextColumn("{task.stop_time}"),
+            refresh_per_second=2,
+            redirect_stderr=False,
+            redirect_stdout=False,
+            expand=False,
+            console=console,
+        )
+        with self.progress:
+            for i, task in enumerate(tasks):
+                task.task_id = i + 1
+                self.progress_tasks[task] = self.progress.add_task(str(task.identifier),
+                                                                   start=False, total=1, cuda_list=[], status='PENDING')
+
+            runner = asyncio.run(self._run_v2(tasks))
+            # runner = asyncio.run(self._run(tasks))
+            print(runner.get_current_ordered_nodes())
 
     async def _update_candidates(self, finished_task: Task, runner: TopoSorter, cuda_resource: CUDAResource):
         new_nodes = runner.set_next_node(finished_task)
@@ -119,7 +161,8 @@ class Launcher:
         # async with resource_manager.allocate(quantity=task.cuda_quantity, timeout=1) as cuda_list:
         with nullcontext():
             cuda = ",".join(map(str, cuda_list))
-            logging_callback = lambda pid: logger.info(
+
+            def logging_callback(pid): return logger.info(
                 "Running Task[%d/%s] PID=%d CUDA=%s: %s",
                 task_id,
                 total,
@@ -205,7 +248,8 @@ class Launcher:
         logging_callback,
     ):
         io_folder = Path(io_folder)
-        timestamp = ("_" + str(int(time.time()))) if self.add_timestamp_to_log else ""
+        timestamp = ("_" + str(int(time.time()))
+                     ) if self.add_timestamp_to_log else ""
         with open(io_folder / f"stdout{timestamp}.log", "w", encoding="utf-8") as f_out, open(
             io_folder / f"stderr{timestamp}.log", "w", encoding="utf-8"
         ) as f_err:
@@ -237,8 +281,10 @@ class Launcher:
 
     async def try_launch_next_task(self):
         async with self._lock:
-            candidates = [t for t in self.runner.get_next_node_candidates() if t not in self.launched_tasks]
-            task = self._select_next_task(candidates, self.cuda_resource.resources)
+            candidates = [t for t in self.runner.get_next_node_candidates(
+            ) if t not in self.launched_tasks]
+            task = self._select_next_task(
+                candidates, self.cuda_resource.resources)
             if task is None:
                 return
             cuda_list = await self.cuda_resource.allocate_no_recycle(task.cuda_quantity, timeout=None)
@@ -268,8 +314,14 @@ class Launcher:
         task: Task,
         cuda_list,
     ):
-        await self._launch_task(task, task.task_id, None, cuda_list=cuda_list, total=self.runner.graph.num_nodes)
+        self.progress.start_task(self.progress_tasks[task])
+        self.progress.update(
+            self.progress_tasks[task], cuda_list=cuda_list, status='RUNNING')
+        status = await self._launch_task(task, task.task_id, None, cuda_list=cuda_list, total=self.runner.graph.num_nodes)
         async with self._lock:
             self.runner.set_next_node(task)  # set this task as finished
         await self.return_back_resource(cuda_list)
+        self.progress.update(
+            self.progress_tasks[task], completed=1, status=status)
+        self.progress.stop_task(self.progress_tasks[task])
         # await self.try_launch_next_task()
