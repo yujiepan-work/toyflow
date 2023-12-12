@@ -83,7 +83,7 @@ class Launcher:
             TextColumn("{task.fields[cuda_list]}"),
             TextColumn("{task.description}"),
             TextColumn('{task.fields[status]}'),
-            BarColumn(pulse_style='pulse_style'),
+            BarColumn(pulse_style='bar.back'),
             TaskProgressColumn(),
             TimeElapsedColumn(),
             TextColumn("{task.start_time}"),
