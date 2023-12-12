@@ -12,10 +12,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from unittest.mock import Mock
+
 import rich
-from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn, TimeElapsedColumn
-from rich.style import StyleType
 from rich.console import Console
+from rich.progress import (BarColumn, Progress, TaskProgressColumn, TextColumn,
+                           TimeElapsedColumn, TimeRemainingColumn)
+from rich.style import StyleType
 
 from toyflow.core.task_node import Task
 from toyflow.dag import TopoSorter
@@ -81,12 +83,12 @@ class Launcher:
             TextColumn("{task.fields[cuda_list]}"),
             TextColumn("{task.description}"),
             TextColumn('{task.fields[status]}'),
-            BarColumn(),
+            BarColumn(pulse_style='pulse_style'),
             TaskProgressColumn(),
             TimeElapsedColumn(),
             TextColumn("{task.start_time}"),
             TextColumn("{task.stop_time}"),
-            refresh_per_second=2,
+            refresh_per_second=1.0/3.5,
             redirect_stderr=False,
             redirect_stdout=False,
             expand=False,
