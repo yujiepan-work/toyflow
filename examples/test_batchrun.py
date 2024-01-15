@@ -23,5 +23,5 @@ if __name__ == "__main__":
 
     tasks[4].add_downstreams(tasks[0])
     tasks[3].add_downstreams([tasks[2], tasks[1]])
-    launcher.run(tasks, add_timestamp_to_log=False)
+    print(launcher.run(tasks, add_timestamp_to_log=False))
     (3, 1, 2, 4, 0)

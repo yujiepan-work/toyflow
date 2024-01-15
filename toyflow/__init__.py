@@ -1,1 +1,1 @@
-from toyflow.core.batchrun import Task, Launcher
+from toyflow.core.batchrun_v2 import Task, Launcher
