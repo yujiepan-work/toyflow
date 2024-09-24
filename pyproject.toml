@@ -1,0 +1,46 @@
+[tool.poetry]
+name = "toyflow"
+[build-system]
+build-backend = "setuptools.build_meta"
+include = [
+  "src/toyflow/callbacks/web_callback.html",
+]
+requires = ["setuptools", "wheel"]
+[tool.pylint.'MESSAGES CONTROL']
+disable = """
+    missing-class-docstring,
+    missing-module-docstring,
+    missing-function-docstring,
+    logging-fstring-interpolation,
+    unused-import,
+"""
+max-line-length = 120
+[tool.isort]
+include_trailing_comma = true
+known_local_folder = ["."]
+known_nncf = ["nncf", "optimum"]
+known_torch = ["torch"]
+known_toy = ["toyflow", "toytools"]
+line_length = 100
+multi_line_output = 3
+no_lines_before = ['nncf']
+sections = [
+  'FUTURE',
+  'STDLIB',
+  'TORCH',
+  'NNCF',
+  'THIRDPARTY',
+  'FIRSTPARTY',
+  'LOCALFOLDER',
+  'TOY',
+]
+[tool.autopep8]
+ignore = [
+  "E402",
+]
+max-line-length = 120
+[tool.black]
+line-length = 120
+[tool.poetry.dependencies]
+flask = "*"
+pandas = "*"

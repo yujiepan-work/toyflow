@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>[TITLE]</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.min.css">
+    <style>
+        .container {
+            max-width: 98%;
+        }
+
+        .table-responsive {
+            overflow-x: inherit;
+        }
+        
+        table.dateTable tbody tr,
+        table.dataTable tbody th,
+        table.dataTable tbody td {
+            padding: 1px 1px;
+            border-color: #ccc;
+        }
+
+        table.dataTable {
+            border-color: #ccc;
+        }
+
+        table.dataTable thead th {
+            text-align: left;
+            /* Left align table headers */
+        }
+
+        .last-update {
+            margin-top: 0px;
+            font-size: 0.9em;
+            color: gray;
+            margin-left: 10px;
+            /* Align to the right of buttons */
+        }
+
+        h1.display-6 {
+            font-size: 1.5rem;
+            /* Adjust font size to make it smaller */
+            margin-bottom: 0.5rem;
+            margin-top: 5px;
+        }
+
+        .btn-group .btn.active {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-group .btn {
+            padding: 0.25rem 0.5rem;
+            /* Smaller button height */
+        }
+
+        .error-message {
+            color: red;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .header-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-row>* {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"></script>
+    <script>
+        let refreshInterval;
+        let refreshRate = 5000; // Default to 5 seconds
+        let refreshFailCount = 0;
+        const maxFailCount = 10;
+        const fetchTimeout = 1000; // 5 seconds timeout
+
+        function fetchWithTimeout(url, options, timeout = fetchTimeout) {
+            return Promise.race([
+                fetch(url, options),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Timeout')), timeout)
+                )
+            ]);
+        }
+
+        function fetchJobs() {
+            fetchWithTimeout('/jobs')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    refreshFailCount = 0; // Reset fail count on success
+                    const content = document.getElementById('task-list');
+                    content.innerHTML = data['html'];
+                    if ($.fn.DataTable.isDataTable('#job-table')) {
+                        $('#job-table').DataTable().destroy();
+                    }
+                    $('#job-table').DataTable({
+                        "paging": false,
+                        "stateSave": true
+                    });
+                    document.getElementById('last-update').innerText = `Last update: ${new Date().toLocaleString()}`;
+                    document.getElementById('error-message').innerText = ''; // Clear error message
+                })
+                .catch(error => {
+                    refreshFailCount++;
+                    if (refreshFailCount >= maxFailCount) {
+                        document.getElementById('error-message').innerText = 'Refresh error';
+                        clearInterval(refreshInterval); // Stop further attempts
+                    }
+                });
+        }
+
+        function setRefreshRate(rate, button) {
+            clearInterval(refreshInterval);
+            if (rate !== 0) {
+                refreshInterval = setInterval(fetchJobs, rate);
+            }
+            refreshRate = rate;
+            document.querySelectorAll('.btn-group .btn').forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+        }
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+            fetchJobs();
+            setRefreshRate(refreshRate, document.querySelector('.btn-group .btn:nth-child(2)')); // Default to 5 sec button
+        });
+    </script>
+</head>
+
+<body>
+    <div class="container">
+
+        <h1 class="display-6">[TITLE]</h1>
+        <div class="d-flex align-items-center">
+            <span class="mr-2">Refresh interval:</span>
+            <div class="btn-group" role="group" aria-label="Refresh rate">
+                <button type="button" class="btn btn-primary" onclick="setRefreshRate(2000, this)">2 sec</button>
+                <button type="button" class="btn btn-primary" onclick="setRefreshRate(5000, this)">5 sec</button>
+                <button type="button" class="btn btn-primary" onclick="setRefreshRate(10000, this)">10 sec</button>
+                <button type="button" class="btn btn-primary" onclick="setRefreshRate(0, this)">Never</button>
+            </div>
+            <div id="last-update" class="last-update"></div>
+            <div id="error-message" class="error-message"></div>
+        </div>
+
+        <div class="table-responsive" id="task-list"></div>
+    </div>
+</body>
+
+</html>

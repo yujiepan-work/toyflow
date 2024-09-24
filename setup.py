@@ -8,7 +8,8 @@ repo_root = Path(__file__).parent
 
 def find_version_info():
     try:
-        git_output = subprocess.check_output(["git", "rev-list", "--count", "HEAD"], cwd=repo_root)
+        git_output = subprocess.check_output(
+            ["git", "rev-list", "--count", "HEAD"], cwd=repo_root)
         dev_version_id = git_output.strip().decode()
         return f".dev{dev_version_id}"
     except Exception:
@@ -25,7 +26,16 @@ setup(
     license="MIT license",
     keywords="toyflow",
     name="toyflow",
-    packages=find_packages(include=["toyflow", "toyflow.*"]),
+    packages=find_packages(where="./src/", include=['*']),
+    package_dir={"": "src"},
     url="https://github.com/yujiepan-work/toyflow",
-    version=f"0.2.0{find_version_info()}",
+    version=f"0.3.0{find_version_info()}",
+    include_package_data=True,
+    package_data={
+        'toyflow': ['src/toyflow/callbacks/web_callback.html'],
+    },
+    install_requires=[
+        "pandas",
+        "flask",
+    ],
 )
