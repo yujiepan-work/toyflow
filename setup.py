@@ -1,3 +1,4 @@
+import os
 import subprocess
 from pathlib import Path
 
@@ -11,10 +12,25 @@ def find_version_info():
         git_output = subprocess.check_output(
             ["git", "rev-list", "--count", "HEAD"], cwd=repo_root)
         dev_version_id = git_output.strip().decode()
-        return f".dev{dev_version_id}"
+        return f"{int(dev_version_id):03d}"
     except Exception:
-        return ""
+        return "000"
 
+
+def get_commit_date():
+    try:
+        git_output = subprocess.check_output(
+            ["git", "log", "-1", "--format=%cd", "--date=format:%y%m%d"],
+            cwd=repo_root)
+        return git_output.strip().decode()
+    except Exception:
+        return "000000"
+
+
+if os.environ.get('TOYFLOW_ADD_DEV_VERSION', '1').lower() in ['1', 'true']:
+    version = f'.dev{get_commit_date()}{find_version_info()}'
+else:
+    version = ''
 
 setup(
     author="yujiepan",
@@ -29,7 +45,7 @@ setup(
     packages=find_packages(where="./src/", include=['*']),
     package_dir={"": "src"},
     url="https://github.com/yujiepan-work/toyflow",
-    version=f"0.3.0{find_version_info()}",
+    version=f"0.2.1" + version,
     include_package_data=True,
     package_data={
         'toyflow': ['src/toyflow/callbacks/web_callback.html'],

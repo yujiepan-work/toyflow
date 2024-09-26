@@ -1,11 +1,26 @@
 [tool.poetry]
+authors = ["yujiepan <yujiepan@no-email.example.com>"]
+description = "Lightweight flow execution tool."
+keywords = ["toyflow"]
+license = "MIT"
 name = "toyflow"
+readme = "README.md"
+repository = "https://github.com/yujiepan-work/toyflow"
+
+[tool.poetry.dependencies]
+flask = "*"
+pandas = "*"
+python = ">=3.8"
+
 [build-system]
 build-backend = "setuptools.build_meta"
-include = [
-  "src/toyflow/callbacks/web_callback.html",
-]
 requires = ["setuptools", "wheel"]
+
+[tool.poetry.include]
+# Add this section to include the HTML file
+include = [
+  {path = "src/toyflow/callbacks/web_callback.html", format = "text"},
+]
 [tool.pylint.'MESSAGES CONTROL']
 disable = """
     missing-class-docstring,
@@ -41,6 +56,3 @@ ignore = [
 max-line-length = 120
 [tool.black]
 line-length = 120
-[tool.poetry.dependencies]
-flask = "*"
-pandas = "*"
