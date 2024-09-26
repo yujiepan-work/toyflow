@@ -1,11 +1,8 @@
-import asyncio
 import logging
-import os
 from typing import List, Optional
 
-from toyflow.callbacks.base import Callback
 from toyflow.job import Job, JobStatus
-from toyflow.resource import Resource, ResourcePool, ResourceType
+from toyflow.resource import Resource, ResourceType
 
 logging.basicConfig(level=logging.INFO)
 
