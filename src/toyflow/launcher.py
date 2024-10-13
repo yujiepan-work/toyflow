@@ -16,7 +16,8 @@ class Launcher:
         self,
         cuda_list: list[int],
         jobs: List[Job],
-        callbacks: Optional[List[Callback]] = None
+        callbacks: Optional[List[Callback]] = None,
+        add_timestamp_to_log_dir: bool = False,
     ):
         resource_items = [ResourceItem(ResourceType.CPU, 0, float('inf'))]
         for cuda_id in cuda_list:
@@ -26,7 +27,7 @@ class Launcher:
         self.resource_pool = ResourcePool(resource_items)
 
         all_callbacks = [
-            LoggingCallback(),
+            LoggingCallback(add_timestamp_to_log_dir),
             RichCallback(),
             WebCallback(),
         ]

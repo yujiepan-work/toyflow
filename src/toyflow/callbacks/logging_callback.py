@@ -24,9 +24,10 @@ JOB_STATUS_FILENAME = 'job_info.json'
 
 class LoggingCallback(Callback):
 
-    def __init__(self) -> None:
+    def __init__(self, add_timestamp_to_log_dir: bool= False) -> None:
         super().__init__()
         self._storage = {}
+        self.add_timestamp_to_log_dir = add_timestamp_to_log_dir
 
     def on_job_start(self, job: Job):
         log_dir = Path(job.log_dir, LOG_FOLDER_NAME)
@@ -84,8 +85,13 @@ class LoggingCallback(Callback):
 
     @contextlib.contextmanager
     def redirect_output(self, job: Job):
-        stdout_path = Path(job.log_dir, LOG_FOLDER_NAME, f"stdout.log")
-        stderr_path = Path(job.log_dir, LOG_FOLDER_NAME, f"stderr.log")
+        if self.add_timestamp_to_log_dir:
+            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+            stdout_path = Path(job.log_dir, LOG_FOLDER_NAME, f"stdout_{timestamp}.log")
+            stderr_path = Path(job.log_dir, LOG_FOLDER_NAME, f"stderr_{timestamp}.log")
+        else:
+            stdout_path = Path(job.log_dir, LOG_FOLDER_NAME, f"stdout.log")
+            stderr_path = Path(job.log_dir, LOG_FOLDER_NAME, f"stderr.log")
         with open(stdout_path, 'w', encoding='utf-8') as stdout, \
                 open(stderr_path, 'w', encoding='utf-8') as stderr:
             job._stdout = stdout
