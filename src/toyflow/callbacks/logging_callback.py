@@ -4,38 +4,56 @@ import datetime
 import logging
 import platform
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeVar
 
 from toyflow.callbacks.base import Callback
 from toyflow.job import Job
 from toyflow.utils.json_util import dump_json, load_json
-from toyflow.utils.python_env import (get_conda_env_info, get_git_info,
-                                      get_pip_editable_packages_with_git_info)
+from toyflow.utils.python_env import (get_conda_env_info,
+                                      get_environment_variables, get_git_info,
+                                      get_pip_editable_packages_with_git_info,
+                                      get_simple_conda_env_info)
 
 logging.basicConfig(level=logging.INFO)
 
 Task = TypeVar('Task')
 
-LOG_FOLDER_NAME = '.job-log'
-ENV_FILENAME = 'job_env.json'
-JOB_STATUS_FILENAME = 'job_info.json'
+
+@dataclass
+class LoggingCallbackConfig:
+    log_folder_name: str = '.job-log'
+    env_filename: str = 'job_env.json'
+    job_info_filename: str = 'job_info.json'
+    add_timestamp_to_log_dir: bool = False
+    dependency_keywords: list[str] = (
+        'torch', 'transformers', 'openvino', 'accelerate', 'cuda=',
+        'diffusers', 'optimum', 'nncf', 'vllm',
+    )
+    remove_sensitive_env_keys: bool = True
+    remove_sensitive_env_keys_extra_list: list[str] = ()
+    force_only_show_selected_env_keys: bool = True
+    force_only_show_env_keys_extra_list: list[str] = ()
 
 
 class LoggingCallback(Callback):
+    config_cls = LoggingCallbackConfig
 
-    def __init__(self, add_timestamp_to_log_dir: bool= False) -> None:
-        super().__init__()
+    def __init__(
+        self, config: LoggingCallbackConfig,
+    ) -> None:
+        super().__init__(config)
+        self.config: LoggingCallbackConfig
         self._storage = {}
-        self.add_timestamp_to_log_dir = add_timestamp_to_log_dir
 
     def on_job_start(self, job: Job):
-        log_dir = Path(job.log_dir, LOG_FOLDER_NAME)
+        log_dir = Path(job.log_dir, self.config.log_folder_name)
         log_dir.mkdir(parents=True, exist_ok=True)
 
         dump_json(
             self.get_python_env_info(job),
-            Path(log_dir, ENV_FILENAME)
+            Path(log_dir, self.config.env_filename)
         )
 
     @contextlib.contextmanager
@@ -44,8 +62,13 @@ class LoggingCallback(Callback):
             yield
 
     def on_process_start(self, job: Job, process: asyncio.subprocess.Process):
-        path = Path(job.log_dir, LOG_FOLDER_NAME, JOB_STATUS_FILENAME)
+        path = Path(job.log_dir, self.config.log_folder_name,
+                    self.config.job_info_filename)
         info = self.get_job_argv(job)
+        info['conda'] = get_simple_conda_env_info(
+            keywords=self.config.dependency_keywords)
+        info['cwd_git_diff'] = get_git_info(job.cwd, return_diff=False)
+        info['cwd_git_diff']['cwd'] = Path(job.cwd).as_posix()
         info['host'] = platform.uname()._asdict(),
         info['launch_time'] = datetime.datetime.now().isoformat()
         info['end_time'] = None
@@ -59,7 +82,8 @@ class LoggingCallback(Callback):
         self._storage['running_info'][job] = info
 
     def on_process_end(self, job: Job, process: asyncio.subprocess.Process):
-        path = Path(job.log_dir, LOG_FOLDER_NAME, JOB_STATUS_FILENAME)
+        path = Path(job.log_dir, self.config.log_folder_name,
+                    self.config.job_info_filename)
         flag = False
         if 'running_info' in self._storage and job in self._storage['running_info']:
             info = self._storage['running_info'][job]
@@ -85,13 +109,13 @@ class LoggingCallback(Callback):
 
     @contextlib.contextmanager
     def redirect_output(self, job: Job):
-        if self.add_timestamp_to_log_dir:
+        if self.config.add_timestamp_to_log_dir:
             timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-            stdout_path = Path(job.log_dir, LOG_FOLDER_NAME, f"stdout_{timestamp}.log")
-            stderr_path = Path(job.log_dir, LOG_FOLDER_NAME, f"stderr_{timestamp}.log")
+            stdout_path = Path(job.log_dir, f"stdout_{timestamp}.log")
+            stderr_path = Path(job.log_dir, f"stderr_{timestamp}.log")
         else:
-            stdout_path = Path(job.log_dir, LOG_FOLDER_NAME, f"stdout.log")
-            stderr_path = Path(job.log_dir, LOG_FOLDER_NAME, f"stderr.log")
+            stdout_path = Path(job.log_dir, f"stdout.log")
+            stderr_path = Path(job.log_dir, f"stderr.log")
         with open(stdout_path, 'w', encoding='utf-8') as stdout, \
                 open(stderr_path, 'w', encoding='utf-8') as stderr:
             job._stdout = stdout
@@ -114,7 +138,12 @@ class LoggingCallback(Callback):
         info = {}
         info['conda'] = get_conda_env_info()
         info['pip_editable'] = get_pip_editable_packages_with_git_info()
-        info['env'] = dict(sorted(job.env.items()))
+        info['env'] = get_environment_variables(
+            job.env, remove_sensitive=self.config.remove_sensitive_env_keys,
+            remove_sensitive_extra_list=self.config.remove_sensitive_env_keys_extra_list,
+            force_only_show_selected_env_keys=self.config.force_only_show_selected_env_keys,
+            force_only_show_env_keys_extra_list=self.config.force_only_show_env_keys_extra_list,
+        )
         info['cwd_git_diff'] = get_git_info(job.cwd)
         info['cwd_git_diff']['cwd'] = Path(job.cwd).as_posix()
         return info

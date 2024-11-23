@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+from dataclasses import dataclass
 from typing import List, TypeVar
 
 from toyflow.job import Job
@@ -12,7 +13,27 @@ Task = TypeVar('Task')
 LOG_FOLDER_NAME = '.job-info'
 
 
+@dataclass
+class CallbackConfig:
+    pass
+
+
 class Callback:
+    config_cls: dataclass = CallbackConfig
+
+    @classmethod
+    def from_config(cls, **kwargs):
+        valid_keys = {
+            field.name for field in cls.config_cls.__dataclass_fields__.values()}
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_keys}
+        config = cls.config_cls(**filtered_kwargs)
+        logging.info(f'Registered {cls.__name__}(config={config})')
+        obj = cls(config)
+        return obj
+
+    def __init__(self, config: CallbackConfig):
+        self.config = config
+
     def on_launcher_start(self, jobs: List[Job]):
         pass
 
@@ -37,7 +58,8 @@ class Callback:
 
 
 class CompositeCallback(Callback):
-    def __init__(self, callbacks: List[Callback]):
+    def __init__(self, config=Callback.config_cls(), callbacks: List[Callback] = tuple()):
+        super().__init__(config)
         self.callbacks = callbacks
 
     def on_launcher_start(self, jobs: List[Job]):

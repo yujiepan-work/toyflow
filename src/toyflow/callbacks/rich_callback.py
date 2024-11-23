@@ -27,8 +27,8 @@ console = Console()
 
 
 class RichCallback(Callback):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, config) -> None:
+        super().__init__(config)
         self.console = console
         self._additional_info = Text('[Running...]')
 
@@ -78,6 +78,9 @@ class RichCallback(Callback):
 
     def on_launcher_end(self, jobs: List[Job]):
         self.live.stop()
+        # display the progress table's string
+        self.console.print('\n\n[Job Summary]')
+        self.console.print(self.progress)
 
     def on_job_start(self, job: Job):
         self.progress.start_task(self.job_vs_task_id[job])

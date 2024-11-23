@@ -17,7 +17,7 @@ class Launcher:
         cuda_list: list[int],
         jobs: List[Job],
         callbacks: Optional[List[Callback]] = None,
-        add_timestamp_to_log_dir: bool = False,
+        **kwargs,
     ):
         resource_items = [ResourceItem(ResourceType.CPU, 0, float('inf'))]
         for cuda_id in cuda_list:
@@ -27,14 +27,15 @@ class Launcher:
         self.resource_pool = ResourcePool(resource_items)
 
         all_callbacks = [
-            LoggingCallback(add_timestamp_to_log_dir),
-            RichCallback(),
-            WebCallback(),
+            LoggingCallback.from_config(**kwargs),
+            RichCallback.from_config(**kwargs),
+            WebCallback.from_config(**kwargs),
         ]
         if callbacks:
             all_callbacks.extend(callbacks)
 
-        self.callback: CompositeCallback = CompositeCallback(all_callbacks)
+        self.callback: CompositeCallback = CompositeCallback(
+            callbacks=all_callbacks)
         self.job_scheduler = JobScheduler(jobs)
         self.resource_release_event = asyncio.Event()
 

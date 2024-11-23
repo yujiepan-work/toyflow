@@ -20,8 +20,8 @@ with open(Path(__file__).parent / 'web_callback.html', 'r', encoding='utf-8') as
 
 
 class WebCallback(Callback):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, config) -> None:
+        super().__init__(config)
         self.jobs = []
 
     def on_launcher_start(self, jobs: List[Job]):
