@@ -65,6 +65,7 @@ class LoggingCallback(Callback):
         path = Path(job.log_dir, self.config.log_folder_name,
                     self.config.job_info_filename)
         info = self.get_job_argv(job)
+        info['extra_info'] = job.extra_info
         info['conda'] = get_simple_conda_env_info(
             keywords=self.config.dependency_keywords)
         info['cwd_git_diff'] = get_git_info(job.cwd, return_diff=False)

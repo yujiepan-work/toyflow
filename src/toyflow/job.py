@@ -30,6 +30,7 @@ class Job:
     prepare_fn: Optional[Callable] = None
     prepare_fn_args: Optional[tuple] = None
     status: JobStatus = JobStatus.PENDING
+    extra_info: Dict[str, Any] = field(default_factory=dict)
     _stdout = sys.stdout
     _stderr = sys.stderr
     _resource: Resource = field(default_factory=Resource)
