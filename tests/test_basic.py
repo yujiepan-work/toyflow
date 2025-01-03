@@ -28,6 +28,10 @@ if __name__ == "__main__":
         )
         jobs.append(job)
 
-    Launcher(list(range(8)), jobs, add_timestamp_to_log_dir=True).start()
+    Launcher(
+        list(range(8)), jobs,
+        add_timestamp_to_log_dir=True,
+        disable_env_info=False,
+    ).start()
     # for p in os.walk(tmp):
     #     print(p)

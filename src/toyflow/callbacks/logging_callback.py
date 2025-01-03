@@ -30,11 +30,13 @@ class LoggingCallbackConfig:
     dependency_keywords: list[str] = (
         'torch', 'transformers', 'openvino', 'accelerate', 'cuda=',
         'diffusers', 'optimum', 'nncf', 'vllm',
+        'sglang', 'sgl-kernel', 'triton', 'flashinfer',
     )
     remove_sensitive_env_keys: bool = True
     remove_sensitive_env_keys_extra_list: list[str] = ()
     force_only_show_selected_env_keys: bool = True
     force_only_show_env_keys_extra_list: list[str] = ()
+    disable_env_info: bool = False
 
 
 class LoggingCallback(Callback):
@@ -66,10 +68,14 @@ class LoggingCallback(Callback):
                     self.config.job_info_filename)
         info = self.get_job_argv(job)
         info['extra_info'] = job.extra_info
-        info['conda'] = get_simple_conda_env_info(
-            keywords=self.config.dependency_keywords)
-        info['cwd_git_diff'] = get_git_info(job.cwd, return_diff=False)
-        info['cwd_git_diff']['cwd'] = Path(job.cwd).as_posix()
+
+        if not self.config.disable_env_info:
+            info['conda'] = get_simple_conda_env_info(
+                keywords=self.config.dependency_keywords
+            )
+            info['cwd_git_diff'] = get_git_info(job.cwd, return_diff=False)
+            info['cwd_git_diff']['cwd'] = Path(job.cwd).as_posix()
+
         info['host'] = platform.uname()._asdict(),
         info['launch_time'] = datetime.datetime.now().isoformat()
         info['end_time'] = None
@@ -137,6 +143,8 @@ class LoggingCallback(Callback):
 
     def get_python_env_info(self, job):
         info = {}
+        if self.config.disable_env_info:
+            return info
         info['conda'] = get_conda_env_info()
         info['pip_editable'] = get_pip_editable_packages_with_git_info()
         info['env'] = get_environment_variables(
