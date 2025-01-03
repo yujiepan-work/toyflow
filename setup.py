@@ -45,7 +45,7 @@ setup(
     packages=find_packages(where="./src/", include=['*']),
     package_dir={"": "src"},
     url="https://github.com/yujiepan-work/toyflow",
-    version=f"0.4.0" + version,
+    version=f"0.4.1" + version,
     include_package_data=True,
     package_data={
         'toyflow': ['src/toyflow/callbacks/web_callback.html'],
