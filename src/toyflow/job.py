@@ -1,3 +1,4 @@
+import logging
 import os
 import shlex
 import sys
@@ -8,6 +9,8 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from unittest.mock import Mock
 
 from toyflow.resource import Resource
+
+logging.basicConfig(level=logging.INFO)
 
 
 class JobStatus(IntEnum):
@@ -31,6 +34,7 @@ class Job:
     prepare_fn_args: Optional[tuple] = None
     status: JobStatus = JobStatus.PENDING
     extra_info: Dict[str, Any] = field(default_factory=dict)
+    apply_shlex_parsing_for_cmd: bool = True
     _stdout = sys.stdout
     _stderr = sys.stderr
     _resource: Resource = field(default_factory=Resource)
@@ -47,10 +51,38 @@ class Job:
         self.job_name = str(self.job_name) if self.job_name else None
         self.prepare_fn = self.prepare_fn or Mock()
 
+        if not self.apply_shlex_parsing_for_cmd:
+            assert isinstance(self.cmd, str), \
+                "cmd must be a string if `apply_shlex_parsing_for_cmd` is False."
+            logging.warning((
+                "You have set `apply_shlex_parsing_for_cmd` to False. "
+                "In this case, `cmd` must be a string, and will be used directly "
+                "as the command to run in shell. Use with care."
+            ))
+
+        # Call these two methods to check if the cmd is valid.
+        self.cmd_list, self.cmd_str
+
     @property
     def cmd_str(self) -> str:
         """Returns the command as a single string."""
-        return ' '.join(str(s) for s in self.cmd_list)
+        if not self.apply_shlex_parsing_for_cmd:
+            return str(self.cmd)
+
+        result = shlex.join(self.cmd_list)
+        if any((
+            "&'" in result,
+            ";'" in result,
+        )):
+            logging.warning((
+                "You might be using shell features like `&` or `;` in the command. "
+                "They are regarded as normal string in the command to run, which "
+                "might lead to unexpected behavior. "
+                "If you are sure about what you are doing, "
+                "please set `apply_shlex_parsing_for_cmd` to False, "
+                "and pass a string to `cmd` directly."
+            ))
+        return result
 
     @property
     def cmd_list(self) -> List[str]:
@@ -59,13 +91,17 @@ class Job:
             return shlex.split(self.cmd)
 
         assert isinstance(self.cmd, list), "cmd must be a string or a list"
-        result = []
-        for part in self.cmd:
-            if isinstance(part, str):
-                result.extend(shlex.split(part))
+        result: List[str] = []
+        for item in self.cmd:
+            if isinstance(item, str):
+                result.append(item)
             else:
-                result.append(str(part))
-        return result
+                logging.warning(
+                    f"Non-string item {item} in cmd list is converted by calling `str(item)`.")
+                result.append(str(item))
+
+        result_str = shlex.join(result)
+        return shlex.split(result_str)
 
     def __repr__(self):
         return (

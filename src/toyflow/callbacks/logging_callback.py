@@ -31,6 +31,7 @@ class LoggingCallbackConfig:
         'torch', 'transformers', 'openvino', 'accelerate', 'cuda=',
         'diffusers', 'optimum', 'nncf', 'vllm',
         'sglang', 'sgl-kernel', 'triton', 'flashinfer',
+        'mamba-ssm', 'causal-conv1d',
     )
     remove_sensitive_env_keys: bool = True
     remove_sensitive_env_keys_extra_list: list[str] = ()
@@ -135,6 +136,7 @@ class LoggingCallback(Callback):
         info = {}
         info['cwd'] = Path(job.cwd).as_posix()
         info['cmd'] = job.cmd_list
+        info['actual_cmd_str_to_run_in_shell'] = job.cmd_str
         info['log_dir'] = Path(job.log_dir).as_posix()
         info['job_name'] = job.job_name
         info['env'] = job._env_str
