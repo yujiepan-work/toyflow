@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 from typing import List, Optional
 
 from toyflow.callbacks import (Callback, CompositeCallback, LoggingCallback,
@@ -111,5 +112,14 @@ class Launcher:
         self.callback.on_launcher_end(self.job_scheduler.jobs)
 
     def start(self):
-        asyncio.run(self._start())
+        if 'ipykernel' in sys.modules:
+            # Running in Jupyter Notebook
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.create_task(self._start())
+            else:
+                loop.run_until_complete(self._start())
+        else:
+            # Running in Bash or other environments
+            asyncio.run(self._start())
         logging.info('Finished')
