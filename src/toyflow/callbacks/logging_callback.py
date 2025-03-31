@@ -31,7 +31,8 @@ class LoggingCallbackConfig:
         'torch', 'transformers', 'openvino', 'accelerate', 'cuda=',
         'diffusers', 'optimum', 'nncf', 'vllm',
         'sglang', 'sgl-kernel', 'triton', 'flashinfer',
-        'mamba-ssm', 'causal-conv1d',
+        'mamba-ssm', 'causal-conv1d', 'liger', 'flash-attn', 'unsloth',
+        'gguf', 'lm-eval',
     )
     remove_sensitive_env_keys: bool = True
     remove_sensitive_env_keys_extra_list: list[str] = ()
