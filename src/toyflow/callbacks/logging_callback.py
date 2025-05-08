@@ -32,12 +32,13 @@ class LoggingCallbackConfig:
         'diffusers', 'optimum', 'nncf', 'vllm',
         'sglang', 'sgl-kernel', 'triton', 'flashinfer',
         'mamba-ssm', 'causal-conv1d', 'liger', 'flash-attn', 'unsloth',
-        'gguf', 'lm-eval',
+        'gguf', 'lm-eval', 'lighteval',
     )
     remove_sensitive_env_keys: bool = True
     remove_sensitive_env_keys_extra_list: list[str] = ()
     force_only_show_selected_env_keys: bool = True
     force_only_show_env_keys_extra_list: list[str] = ()
+    show_diff_in_env: bool = False
     disable_env_info: bool = False
 
 
@@ -149,14 +150,16 @@ class LoggingCallback(Callback):
         if self.config.disable_env_info:
             return info
         info['conda'] = get_conda_env_info()
-        info['pip_editable'] = get_pip_editable_packages_with_git_info()
+        info['pip_editable'] = get_pip_editable_packages_with_git_info(
+            return_diff=self.config.show_diff_in_env)
         info['env'] = get_environment_variables(
             job.env, remove_sensitive=self.config.remove_sensitive_env_keys,
             remove_sensitive_extra_list=self.config.remove_sensitive_env_keys_extra_list,
             force_only_show_selected_env_keys=self.config.force_only_show_selected_env_keys,
             force_only_show_env_keys_extra_list=self.config.force_only_show_env_keys_extra_list,
         )
-        info['cwd_git_diff'] = get_git_info(job.cwd)
+        info['cwd_git_diff'] = get_git_info(
+            job.cwd, return_diff=self.config.show_diff_in_env)
         info['cwd_git_diff']['cwd'] = Path(job.cwd).as_posix()
         return info
 

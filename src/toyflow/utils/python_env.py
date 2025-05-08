@@ -40,8 +40,12 @@ def get_git_info(path, return_diff=True):
             ['git', '-C', path, 'rev-parse', 'HEAD']).strip().decode('utf-8')
         git_reflog = subprocess.check_output(
             ['git', '-C', path, 'reflog', "-n", '5']).strip().decode('utf-8')
-        git_diff = subprocess.check_output(
-            ['git', '-C', path, 'diff']).strip().decode('utf-8')
+        if return_diff:
+            git_diff = subprocess.check_output(
+                ['git', '-C', path, 'diff']).strip().decode('utf-8')
+        else:
+            git_diff = subprocess.check_output(
+                ['git', '-C', path, 'diff', '--stat']).strip().decode('utf-8')
         if not git_diff:
             git_diff = "No uncommitted changes"
     except subprocess.CalledProcessError:
@@ -52,12 +56,11 @@ def get_git_info(path, return_diff=True):
         "git_commit_id": git_commit_id,
         "git_reflog": git_reflog.split('\n'),
     }
-    if return_diff:
-        output["uncommitted_changes_diff"] = git_diff.split('\n'),
+    output["uncommitted_changes_diff"] = git_diff.split('\n'),
     return output
 
 
-def get_pip_editable_packages_with_git_info():
+def get_pip_editable_packages_with_git_info(return_diff=False):
     result = subprocess.run(
         ['pip', 'list', '--editable', '--format=json'], capture_output=True, text=True)
     editable_packages = json.loads(result.stdout)
@@ -66,7 +69,8 @@ def get_pip_editable_packages_with_git_info():
         package_name = package['name']
         editable_project_location = package.get(
             'location') or package.get('editable_project_location')
-        git_info = get_git_info(editable_project_location)
+        git_info = get_git_info(
+            editable_project_location, return_diff=return_diff)
         packages_with_git_info.append({
             "name": package_name,
             "editable_project_location": editable_project_location,
